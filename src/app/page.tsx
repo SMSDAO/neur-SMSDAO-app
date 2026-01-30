@@ -33,7 +33,7 @@ import { cn } from '@/lib/utils';
 
 const navItems = [
   { label: 'Github', href: 'https://git.new/neur', icon: GitHubLogoIcon },
-  { label: 'Docs', href: 'https://docs.neur.sh', icon: BookOpenIcon },
+  { label: 'Docs', href: 'https://docs.neur.studio', icon: BookOpenIcon },
 ];
 
 const Header = ({ handleLogin }: { handleLogin: () => void }) => {
@@ -376,7 +376,7 @@ export default function Home() {
   const isMaintenanceMode = process.env.NEXT_PUBLIC_MAINTENANCE_MODE === 'true';
   const router = useRouter();
   let { login } = useLogin({
-    onComplete: (
+    onComplete: async (
       user,
       isNewUser,
       wasAlreadyAuthenticated,

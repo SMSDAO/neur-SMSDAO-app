@@ -53,3 +53,10 @@ export function formatPrivyId(id: string | undefined): string {
 export function capitalize(str: string) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
+
+export function truncate(str: string, length = 6) {
+  if (!str) return '';
+  const start = str.slice(0, length);
+  const end = str.slice(-length);
+  return `${start}...${end}`;
+}

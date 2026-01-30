@@ -103,9 +103,13 @@ export const telegramTools = {
     parameters: z.object({
       username: z.string().optional(),
     }),
+    requiredEnvVars: ['TELEGRAM_BOT_USERNAME'],
     execute: async function ({ username }: { username?: string }) {
       try {
-        const response = await verifyTelegramSetupAction({ username, userId: this.userId || undefined });
+        const response = await verifyTelegramSetupAction({
+          username,
+          userId: this.userId || undefined,
+        });
         if (!response?.data?.data) {
           return { success: false, error: 'No response from Telegram action' };
         }
@@ -147,6 +151,7 @@ export const telegramTools = {
       username: z.string().optional(),
       message: z.string(),
     }),
+    requiredEnvVars: ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_BOT_USERNAME'],
     execute: async function ({
       username,
       message,

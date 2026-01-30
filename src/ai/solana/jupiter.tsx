@@ -69,9 +69,7 @@ function PriceCard({
   const priceValue = parseFloat(price.price);
 
   const formattedPrice =
-    priceValue < 0.01
-      ? priceValue.toExponential(2)
-      : formatNumber(priceValue, 'number');
+    priceValue < 1 ? priceValue.toFixed(6) : priceValue.toFixed(2);
 
   return (
     <div className="relative overflow-hidden rounded-2xl bg-muted/50 p-4">

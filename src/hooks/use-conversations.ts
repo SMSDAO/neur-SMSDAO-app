@@ -20,6 +20,7 @@ export function useConversations(userId?: string) {
     removeConversation,
     setActiveId,
     setLoading,
+    markAsRead,
   } = useConversationsStore();
 
   const refreshConversations = useCallback(async () => {
@@ -105,5 +106,6 @@ export function useConversations(userId?: string) {
     setActiveId,
     refreshConversations,
     renameConversation: handleRename,
+    markAsRead,
   };
 }

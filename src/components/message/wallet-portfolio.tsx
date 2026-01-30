@@ -59,11 +59,11 @@ function TokenRow({
       rel="noopener noreferrer"
       className="group/row relative block transition-colors duration-200 ease-out hover:bg-muted/50"
     >
-      <div className="relative flex items-center justify-between p-4">
+      <div className="relative flex items-center justify-between p-3 sm:p-4">
         {/* Token Info */}
         <div className="flex min-w-0 items-center gap-4">
           <div className="relative">
-            <Avatar className="h-12 w-12 rounded-xl border bg-gradient-to-br from-background to-muted">
+            <Avatar className="h-8 w-8 rounded-lg border bg-gradient-to-br from-background to-muted sm:h-12 sm:w-12 sm:rounded-xl">
               <AvatarImage
                 src={token.imageUrl}
                 alt={token.name}
@@ -78,12 +78,12 @@ function TokenRow({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <div className="truncate font-medium">{token.name}</div>
-              <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+              <span className="hidden shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary sm:flex">
                 {token.symbol}
               </span>
             </div>
-            <div className="mt-1.5 flex items-baseline gap-2">
-              <span className="text-sm font-medium text-muted-foreground">
+            <div className="mt-1.5 flex items-baseline gap-2 text-xs sm:text-sm">
+              <span className="font-medium text-muted-foreground">
                 {token.balance.toLocaleString(undefined, {
                   maximumFractionDigits: 4,
                 })}{' '}
@@ -99,7 +99,7 @@ function TokenRow({
             {formatNumber(token.balance * token.pricePerToken, 'currency')}
           </div>
           {hasPrice && (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground sm:text-xs">
               <span>@ {token.pricePerToken.toFixed(4)} $</span>
               <ExternalLink className="h-3.5 w-3.5 transition-colors group-hover/row:text-primary" />
             </div>
@@ -123,7 +123,7 @@ export function WalletPortfolio({
           className,
         )}
       >
-        <CardHeader>
+        <CardHeader className="p-4 sm:p-6">
           <CardTitle className="flex items-center justify-between">
             <div className="h-7 w-36 animate-pulse rounded-lg bg-muted" />
             <div className="h-7 w-28 animate-pulse rounded-lg bg-muted" />
@@ -149,7 +149,7 @@ export function WalletPortfolio({
         className,
       )}
     >
-      <CardHeader className="border-b border-border/40 bg-muted/20">
+      <CardHeader className="border-b border-border/40 bg-muted/20 p-4 sm:p-6">
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
@@ -161,7 +161,7 @@ export function WalletPortfolio({
               <span>{data.tokens.length} tokens</span>
             </div>
           </div>
-          <span className="text-lg font-medium">
+          <span className="text-base font-medium sm:text-lg">
             {formatNumber(data.totalBalance, 'currency')}
           </span>
         </CardTitle>

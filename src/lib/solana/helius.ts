@@ -1,11 +1,16 @@
 import { LAMPORTS_PER_SOL } from '@solana/web3.js';
 
+
+
 import { chunkArray } from '@/lib/utils';
 import rawKnownAddresses from '@/lib/utils/known-addresses.json';
 import { FungibleToken } from '@/types/helius/fungibleToken';
 import { NonFungibleToken } from '@/types/helius/nonFungibleToken';
 
+
+
 import { RPC_URL } from '../constants';
+
 
 export interface Holder {
   owner: string;
@@ -27,7 +32,8 @@ type HeliusMethod =
   | 'getBalance'
   | 'getTokenAccounts'
   | 'getAccountInfo'
-  | 'getMultipleAccounts';
+  | 'getMultipleAccounts'
+  | 'getTokenLargestAccounts';
 
 const KNOWN_ADDRESSES: Record<string, string> = rawKnownAddresses as Record<
   string,
@@ -48,6 +54,11 @@ const fetchHelius = async (method: HeliusMethod, params: any) => {
       }),
     });
 
+    // Check for rate limiting response
+    if (response.status === 429) {
+      throw new Error('RATE_LIMIT_EXCEEDED');
+    }
+
     if (!response.ok) {
       throw new Error(
         `Helius API error: ${response.status} ${response.statusText}`,
@@ -63,6 +74,12 @@ const fetchHelius = async (method: HeliusMethod, params: any) => {
 
     return data;
   } catch (error) {
+    if (error instanceof Error && error.message === 'RATE_LIMIT_EXCEEDED') {
+      return {
+        status: 429,
+        error: 'Helius API request failed: Too many requests',
+      };
+    }
     if (error instanceof Error) {
       throw new Error(`Helius API request failed: ${error.message}`);
     }
@@ -140,6 +157,19 @@ export const searchWalletAssets: (walletAddress: string) => Promise<{
             links: {
               image:
                 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/bSo13r4TkiE4KumL71LsHTPpL2euBYLFx6h9HP3piy1/logo.png',
+            },
+          },
+        };
+      }
+      if (item.token_info.price_info === undefined) {
+        return {
+          ...item,
+          token_info: {
+            ...item.token_info,
+            price_info: {
+              price_per_token: 0,
+              total_price: 0,
+              currency: '$',
             },
           },
         };
@@ -275,7 +305,7 @@ export async function getTokenHolders(
   let page = 1;
   const holderMap = new Map<string, Holder>();
 
-  while (true) {
+  while (page <= 100) {
     const data = await fetchHelius('getTokenAccounts', {
       page,
       limit: 1000,
@@ -307,6 +337,86 @@ export async function getTokenHolders(
   }
 
   return holderMap;
+}
+
+export const getTokenAccountInfo = async (address: string) => {
+  const data = await fetchHelius('getAccountInfo', [
+    address,
+    { encoding: 'jsonParsed' },
+  ]);
+  return data.result.value;
+};
+
+export async function getTopTokenHolders(
+  mintInfo: MintInfo,
+): Promise<Map<string, Holder>> {
+  const data = await fetchHelius('getTokenLargestAccounts', [mintInfo.mint]);
+
+  if (!data.result || data.result.value.length === 0) {
+    throw new Error('No token holders found');
+  }
+  const tokenAccountAddresses = data.result.value.map((a: any) => a.address);
+
+  const holderMap = new Map<string, Holder>();
+  const tokenAccountsResponse = await getMultipleAccountsInfoHelius(
+    tokenAccountAddresses,
+  );
+
+  const tokenAccounts = tokenAccountsResponse?.result?.value;
+  if (!tokenAccounts || !Array.isArray(tokenAccounts)) {
+    return holderMap;
+  }
+  for (const tokenAccount of tokenAccounts) {
+    const balance = tokenAccount.data.parsed.info.tokenAmount.uiAmount;
+    const owner = tokenAccount.data.parsed.info.owner;
+    if (holderMap.has(owner)) {
+      const h = holderMap.get(owner)!;
+      h.balance += balance;
+    } else {
+      holderMap.set(owner, {
+        owner: owner,
+        balance: balance,
+      });
+    }
+  }
+
+  return holderMap;
+}
+
+/**
+ * Fetches total number of holders returns -1 if there are more than 50k holders
+ */
+export async function getTokenHolderCount(mintInfo: MintInfo): Promise<number> {
+  const PAGE_SIZE = 1000;
+  let page = 1;
+  const allOwners = new Set();
+
+  while (page <= 100) {
+    const data = await fetchHelius('getTokenAccounts', {
+      page,
+      limit: 1000,
+      displayOptions: {},
+      mint: mintInfo.mint,
+    });
+
+    if (!data.result || data.result.token_accounts.length === 0) {
+      break;
+    }
+
+    data.result.token_accounts.forEach((account: any) =>
+      allOwners.add(account.owner),
+    );
+
+    if (data.result.token_accounts.length < PAGE_SIZE) {
+      break;
+    }
+
+    page++;
+  }
+  if (allOwners.size > 50000) {
+    return -1;
+  }
+  return allOwners.size;
 }
 
 /**
@@ -346,13 +456,13 @@ async function classifyAddresses(
       const holder = holderMap.get(addr);
       if (!holder) continue;
 
-      // (1) If address is in ACCOUNT_LABELS
+      // If address is in ACCOUNT_LABELS
       if (addr in KNOWN_ADDRESSES) {
         holder.classification = KNOWN_ADDRESSES[addr];
         continue;
       }
 
-      // (2) Otherwise check `accInfo.owner`
+      // Otherwise check `accInfo.owner`
       if (accInfo && accInfo.owner) {
         const programId = accInfo.owner;
         holder.classification =
@@ -364,40 +474,31 @@ async function classifyAddresses(
   }
 }
 
-/**
- * 1) Fetch mint info
- * 2) Fetch all holders (Map)
- * 3) Sort them by descending balance
- * 4) Classify only the top limit holders (minimize RPC calls)
- * 5) Return a sorted array (with classification for top 20)
- */
 export async function getHoldersClassification(
   mint: string,
   limit: number = 10,
 ) {
-  // 1) Mint info
   const mintAccountInfo = await getMintAccountInfo(mint);
   const totalSupply =
     Number(mintAccountInfo.supply) / 10 ** mintAccountInfo.decimals;
 
-  // 2) Holder map
-  const holderMap = await getTokenHolders(mintAccountInfo);
+  const topHolderMap = await getTopTokenHolders(mintAccountInfo);
+  const totalHolders = await getTokenHolderCount(mintAccountInfo);
 
-  // 3) Sort once by balance desc (turn the map into an array)
-  const sortedHolders = Array.from(holderMap.values()).sort((a, b) => {
+  const sortedHolders = Array.from(topHolderMap.values()).sort((a, b) => {
     return b.balance > a.balance ? 1 : b.balance < a.balance ? -1 : 0;
   });
 
   const topHolders = sortedHolders.slice(0, limit);
   await classifyAddresses(
-    holderMap,
+    topHolderMap,
     topHolders.map((h) => h.owner),
     limit,
   );
 
   return {
+    totalHolders,
     topHolders,
-    totalHolders: holderMap.size,
     totalSupply,
   };
 }

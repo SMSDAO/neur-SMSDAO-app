@@ -33,16 +33,29 @@ export const config = {
 export async function middleware(req: NextRequest) {
   const cookieAuthToken = req.cookies.get('privy-token');
   const cookieSession = req.cookies.get('privy-session');
-  const { pathname } = req.nextUrl;
+  const { pathname, searchParams } = req.nextUrl;
+
+  const response = NextResponse.next();
+
+  // Check for a `ref` query parameter in the URL and set the cookie
+  const referralCode = searchParams.get('ref');
+  if (referralCode) {
+    response.cookies.set('referralCode', referralCode, {
+      httpOnly: false,
+      sameSite: 'strict',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+    });
+  }
 
   // Skip middleware for public pages
   if (PUBLIC_PAGES.includes(pathname)) {
-    return NextResponse.next();
+    return response;
   }
 
   // Skip middleware for static assets
   if (PUBLIC_ASSETS.some((ext) => pathname.toLowerCase().endsWith(ext))) {
-    return NextResponse.next();
+    return response;
   }
 
   // Skip middleware for Privy OAuth authentication flow
@@ -51,7 +64,7 @@ export async function middleware(req: NextRequest) {
     req.nextUrl.searchParams.has('privy_oauth_state') ||
     req.nextUrl.searchParams.has('privy_oauth_provider')
   ) {
-    return NextResponse.next();
+    return response;
   }
 
   // User authentication status check
@@ -74,5 +87,5 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+  return response;
 }

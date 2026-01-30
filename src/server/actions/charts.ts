@@ -12,7 +12,7 @@ const priceHistorySchema = z.object({
 });
 
 export const getTokenId = async (contractAddress: string): Promise<string> => {
-  if(!API_KEY){
+  if (!API_KEY) {
     throw new Error('API key not found');
   }
   const url = `${BASE_URL}/coins/solana/contract/${contractAddress}`;
@@ -34,10 +34,13 @@ export const getTokenId = async (contractAddress: string): Promise<string> => {
   return parsed.id;
 };
 
-export const getPriceHistory = async (tokenId: string, days: number = 7): Promise<{ time: string; value: number }[]> => {
-   if(!API_KEY){
+export const getPriceHistory = async (
+  tokenId: string,
+  days: number = 7,
+): Promise<{ time: string; value: number }[]> => {
+  if (!API_KEY) {
     throw new Error('API key not found');
-   }
+  }
   const url = `${BASE_URL}/coins/${tokenId}/market_chart?vs_currency=usd&days=${days}&precision=18`;
   const options = {
     method: 'GET',
@@ -54,5 +57,8 @@ export const getPriceHistory = async (tokenId: string, days: number = 7): Promis
 
   const data = await response.json();
   const parsed = priceHistorySchema.parse(data);
-  return parsed.prices.map(([time, value]) => ({ time: new Date(time).toLocaleString(), value }));
+  return parsed.prices.map(([time, value]) => ({
+    time: new Date(time).toLocaleString(),
+    value,
+  }));
 };

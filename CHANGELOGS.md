@@ -1,5 +1,64 @@
 # Changelogs
 
+## v0.3.4
+
+- Fix bug with missing relevant messages
+- Handle error when unable to fetch bundle data
+
+## v0.3.3
+
+- Cookie.fun integration
+- Bundle checker for Pumpfun tokens
+- UI bug fixes
+- Fixed bug allowing updates to arbitrary user fields
+
+## v0.3.2
+
+- Handle missing stats when using the NFT collectionStats tool on new collections
+- Allow users to toggle Trial/EPA banners
+
+## v0.3.1
+
+- Fix client-side error when an unknown tool is invoked
+
+## v0.3.0
+
+- Improvements to saved prompts
+- Platform subscription implementation
+- Sharable referral codes
+- Trial feature for token holders
+
+## v0.2.3
+
+- Platform performance and stability improvements
+- Automation status UI
+- Conversation read receipts
+- Prompt management
+
+## v0.2.2
+
+- Improved action graceful failure logic
+
+## v0.2.1
+
+- Fix navigation issue
+- Degen mode for skipping confirmations
+- Dynamic action scheduling
+- UI fixes
+
+## v0.2.0
+
+- Improve Telegram notification connection & reliability
+- Action management feature - edit & pause automated actions
+- Privy embedded wallet integration
+- Backend optimizations (model token savings, improvements with automations)
+- Improved UX and stylings
+- Tool orchestration layer, improved agent selection and efficiency
+- Various tool fixes (token holders reliability + styling)
+- Swap + misc. txn improved land rates
+- Confirmation prompt UI buttons
+- Overall performance and reliability improvements
+
 ## v0.1.14
 
 - Removed images from Jina scraping results to reduce context bloat

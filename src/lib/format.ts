@@ -12,9 +12,14 @@ const numberFormatter = new Intl.NumberFormat('en-US', {
 
 export function formatNumber(
   input: any,
-  type: 'currency' | 'number' = 'number',
+  type: 'currency' | 'number' | 'percent' = 'number',
+  decimals = 2,
 ): string {
-  const value = parseFloat(input) || 0;
+  if (type === 'percent') {
+    return `${(Number.parseFloat(input) * 100).toFixed(decimals)}%`;
+  }
+
+  const value = Number.parseFloat(input) || 0;
 
   if (value === 0) return '0';
 
@@ -24,16 +29,16 @@ export function formatNumber(
 
   // Handle very large numbers
   if (value >= 1e12) {
-    return `${type === 'currency' ? '$' : ''}${(value / 1e12).toFixed(2)}T`;
+    return `${type === 'currency' ? '$' : ''}${(value / 1e12).toFixed(decimals)}T`;
   }
   if (value >= 1e9) {
-    return `${type === 'currency' ? '$' : ''}${(value / 1e9).toFixed(2)}B`;
+    return `${type === 'currency' ? '$' : ''}${(value / 1e9).toFixed(decimals)}B`;
   }
   if (value >= 1e6) {
-    return `${type === 'currency' ? '$' : ''}${(value / 1e6).toFixed(2)}M`;
+    return `${type === 'currency' ? '$' : ''}${(value / 1e6).toFixed(decimals)}M`;
   }
   if (value >= 1e3) {
-    return `${type === 'currency' ? '$' : ''}${(value / 1e3).toFixed(2)}K`;
+    return `${type === 'currency' ? '$' : ''}${(value / 1e3).toFixed(decimals)}K`;
   }
 
   return type === 'currency'

@@ -1,87 +1,8 @@
-import { ExternalLink } from 'lucide-react';
 import { z } from 'zod';
 
-import { Button } from '@/components/ui/button';
+import { LaunchResult } from '@/components/message/pumpfun-launch';
 import { Card } from '@/components/ui/card';
 import { retrieveAgentKit } from '@/server/actions/ai';
-
-interface LaunchResultProps {
-  signature: string;
-  mint: string;
-  metadataUri: string;
-}
-
-function LaunchResult({ signature, mint, metadataUri }: LaunchResultProps) {
-  return (
-    <Card className="bg-card p-6">
-      <h2 className="mb-4 text-xl font-semibold text-card-foreground">
-        Token Launch Successful! 🚀
-      </h2>
-      <div className="space-y-4">
-        <div className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
-          <div>
-            <div className="text-sm font-medium text-muted-foreground">
-              Transaction Hash
-            </div>
-            <div className="max-w-[200px] truncate font-mono text-sm">
-              {signature}
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ml-2"
-            onClick={() =>
-              window.open(`https://solscan.io/tx/${signature}`, '_blank')
-            }
-          >
-            <ExternalLink className="h-4 w-4" />
-          </Button>
-        </div>
-
-        <div className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
-          <div>
-            <div className="text-sm font-medium text-muted-foreground">
-              Token Contract
-            </div>
-            <div className="max-w-[200px] truncate font-mono text-sm">
-              {mint}
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ml-2"
-            onClick={() =>
-              window.open(`https://pump.fun/mint/${mint}`, '_blank')
-            }
-          >
-            <ExternalLink className="h-4 w-4" />
-          </Button>
-        </div>
-
-        <div className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
-          <div>
-            <div className="text-sm font-medium text-muted-foreground">
-              Metadata URI
-            </div>
-            <div className="max-w-[200px] truncate font-mono text-sm">
-              {metadataUri}
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ml-2"
-            onClick={() => window.open(metadataUri, '_blank')}
-          >
-            <ExternalLink className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    </Card>
-  );
-}
 
 export const pumpfunTools = {
   launchToken: {
@@ -120,7 +41,8 @@ export const pumpfunTools = {
     }) {
       try {
         const agent =
-          this.agentKit || (await retrieveAgentKit())?.data?.data?.agent;
+          this.agentKit ||
+          (await retrieveAgentKit(undefined))?.data?.data?.agent;
 
         if (!agent) {
           return { success: false, error: 'Failed to retrieve agent' };

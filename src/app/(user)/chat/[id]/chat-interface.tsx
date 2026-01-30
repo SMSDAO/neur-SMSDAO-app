@@ -1,13 +1,21 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import Image from 'next/image';
 
-import { Attachment, Message } from 'ai';
+import { SavedPrompt } from '@prisma/client';
+import { Attachment, JSONValue, Message } from 'ai';
 import { useChat } from 'ai/react';
 import {
-  ChevronDown,
+  Bookmark,
   Image as ImageIcon,
   Loader2,
   SendHorizontal,
@@ -16,19 +24,33 @@ import {
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
+import { toast } from 'sonner';
 import Lightbox from 'yet-another-react-lightbox';
 import 'yet-another-react-lightbox/styles.css';
 
 import { getToolConfig } from '@/ai/providers';
+import { Confirmation } from '@/components/confimation';
 import { FloatingWallet } from '@/components/floating-wallet';
 import Logo from '@/components/logo';
 import { ToolResult } from '@/components/message/tool-result';
+import { SavedPromptsMenu } from '@/components/saved-prompts-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import usePolling from '@/hooks/use-polling';
+import { useUser } from '@/hooks/use-user';
 import { useWalletPortfolio } from '@/hooks/use-wallet-portfolio';
+import { EVENTS } from '@/lib/events';
 import { uploadImage } from '@/lib/upload';
-import { cn, throttle } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import {
+  createSavedPrompt,
+  getSavedPrompts,
+  setSavedPromptLastUsedAt,
+} from '@/server/actions/saved-prompt';
+import { type ToolActionResult, ToolUpdate } from '@/types/util';
+
+import { ConversationInput } from '../../home/conversation-input';
 
 // Types
 interface UploadingImage extends Attachment {
@@ -49,11 +71,18 @@ interface MessageAttachmentsProps {
   onPreviewImage: (preview: ImagePreview) => void;
 }
 
+interface ToolResult {
+  toolCallId: string;
+  result: any;
+}
+
 interface ChatMessageProps {
   message: Message;
   index: number;
   messages: Message[];
+  setSavedPrompts: React.Dispatch<SetStateAction<SavedPrompt[]>>;
   onPreviewImage: (preview: ImagePreview) => void;
+  addToolResult: (result: ToolResult) => void;
 }
 
 interface AttachmentPreviewProps {
@@ -70,7 +99,12 @@ interface ToolInvocation {
   toolCallId: string;
   toolName: string;
   displayName?: string;
-  result?: unknown;
+  result?: {
+    result?: string;
+    message: string;
+  };
+  state?: string;
+  args?: any;
 }
 
 // Constants
@@ -105,6 +139,36 @@ const getImageStyle = (index: number, total: number) => {
   if (total === 2) return 'aspect-square';
   if (total === 3 && index === 0) return 'col-span-2 aspect-[2/1]';
   return 'aspect-square';
+};
+
+const applyToolUpdates = (messages: Message[], toolUpdates: ToolUpdate[]) => {
+  while (toolUpdates.length > 0) {
+    const update = toolUpdates.pop();
+    if (!update) {
+      continue;
+    }
+
+    if (update.type === 'tool-update') {
+      messages.forEach((msg) => {
+        const toolInvocation = msg.toolInvocations?.find(
+          (tool) => tool.toolCallId === update.toolCallId,
+        ) as ToolInvocation | undefined;
+
+        if (toolInvocation) {
+          if (!toolInvocation.result) {
+            toolInvocation.result = {
+              result: update.result,
+              message: toolInvocation.args?.message, // TODO: Don't think this is technically correct, but shouldn't affect UI
+            };
+          } else {
+            toolInvocation.result.result = update.result;
+          }
+        }
+      });
+    }
+  }
+
+  return messages;
 };
 
 const useAnimationEffect = () => {
@@ -181,57 +245,119 @@ function MessageAttachments({
 
 function MessageToolInvocations({
   toolInvocations,
+  addToolResult,
 }: {
   toolInvocations: ToolInvocation[];
+  addToolResult: (result: ToolResult) => void;
 }) {
   return (
     <div className="space-y-px">
-      {toolInvocations.map(({ toolCallId, toolName, displayName, result }) => {
-        const isCompleted = result !== undefined;
-        const isError =
-          isCompleted &&
-          typeof result === 'object' &&
-          result !== null &&
-          'error' in result;
-        const config = getToolConfig(toolName)!;
-        const finalDisplayName = displayName || config.displayName;
+      {toolInvocations.map(
+        ({ toolCallId, toolName, displayName, result, state, args }) => {
+          const toolResult = result as ToolActionResult;
+          if (toolName === 'askForConfirmation') {
+            return (
+              <div key={toolCallId} className="group">
+                <Confirmation
+                  message={args?.message}
+                  result={toolResult?.result}
+                  toolCallId={toolCallId}
+                  addResultUtility={(result) =>
+                    addToolResult({
+                      toolCallId,
+                      result: { result, message: args?.message },
+                    })
+                  }
+                />
+              </div>
+            );
+          }
 
-        const header = (
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <div
-              className={cn(
-                'h-1.5 w-1.5 rounded-full ring-2',
-                isCompleted
-                  ? isError
-                    ? 'bg-destructive ring-destructive/20'
-                    : 'bg-emerald-500 ring-emerald-500/20'
-                  : 'animate-pulse bg-amber-500 ring-amber-500/20',
+          const isCompleted = result !== undefined;
+          const isError =
+            isCompleted &&
+            typeof result === 'object' &&
+            result !== null &&
+            'error' in result;
+
+          const config = getToolConfig(toolName);
+
+          // Handle unknown tool with no config
+          if (!config) {
+            const header = (
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <div
+                  className={cn(
+                    'h-1.5 w-1.5 rounded-full bg-destructive ring-2 ring-destructive/20',
+                  )}
+                />
+                <span className="truncate text-xs font-medium text-foreground/90">
+                  Tool Error
+                </span>
+                <span className="ml-auto font-mono text-[10px] text-muted-foreground/70">
+                  {toolCallId.slice(0, 9)}
+                </span>
+              </div>
+            );
+
+            return (
+              <div key={toolCallId} className="group">
+                <ToolResult
+                  toolName="Tool Error"
+                  result={{
+                    result: 'Tool Error',
+                    error:
+                      'An error occurred while processing your request, please try again or adjust your phrasing.',
+                  }}
+                  header={header}
+                />
+              </div>
+            );
+          }
+
+          const finalDisplayName = displayName || config?.displayName;
+
+          const header = (
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <div
+                className={cn(
+                  'h-1.5 w-1.5 rounded-full ring-2',
+                  isCompleted
+                    ? isError
+                      ? 'bg-destructive ring-destructive/20'
+                      : 'bg-emerald-500 ring-emerald-500/20'
+                    : 'animate-pulse bg-amber-500 ring-amber-500/20',
+                )}
+              />
+              <span className="truncate text-xs font-medium text-foreground/90">
+                {finalDisplayName}
+              </span>
+              <span className="ml-auto font-mono text-[10px] text-muted-foreground/70">
+                {toolCallId.slice(0, 9)}
+              </span>
+            </div>
+          );
+
+          return (
+            <div key={toolCallId} className="group">
+              {isCompleted ? (
+                <ToolResult
+                  toolName={toolName}
+                  result={result}
+                  header={header}
+                />
+              ) : (
+                <>
+                  {header}
+                  <div className="mt-px px-3">
+                    <div className="h-20 animate-pulse rounded-lg bg-muted/40" />
+                  </div>
+                </>
               )}
-            />
-            <span className="truncate text-xs font-medium text-foreground/90">
-              {finalDisplayName}
-            </span>
-            <span className="ml-auto font-mono text-[10px] text-muted-foreground/70">
-              {toolCallId.slice(0, 9)}
-            </span>
-          </div>
-        );
-
-        return (
-          <div key={toolCallId} className="group">
-            {isCompleted ? (
-              <ToolResult toolName={toolName} result={result} header={header} />
-            ) : (
-              <>
-                {header}
-                <div className="mt-px px-3">
-                  <div className="h-20 animate-pulse rounded-lg bg-muted/40" />
-                </div>
-              </>
-            )}
-          </div>
-        );
-      })}
+            </div>
+          );
+        },
+      )}
     </div>
   );
 }
@@ -240,7 +366,9 @@ function ChatMessage({
   message,
   index,
   messages,
+  setSavedPrompts,
   onPreviewImage,
+  addToolResult,
 }: ChatMessageProps) {
   const isUser = message.role === 'user';
   const hasAttachments =
@@ -249,6 +377,33 @@ function ChatMessage({
   const showAvatar =
     !isUser && (index === 0 || messages[index - 1].role === 'user');
   const isConsecutive = index > 0 && messages[index - 1].role === message.role;
+  const { user } = useUser();
+
+  async function handleSavePrompt() {
+    if (!user) {
+      toast.error('Unauthorized');
+      return;
+    }
+
+    toast.promise(
+      createSavedPrompt({
+        title: message.content.trim().slice(0, 30) + '...',
+        content: message.content.trim(),
+      }).then((res) => {
+        if (!res?.data?.data) {
+          throw new Error();
+        }
+
+        const savedPrompt = res?.data?.data;
+        setSavedPrompts((old) => [...old, savedPrompt]);
+      }),
+      {
+        loading: 'Saving prompt...',
+        success: 'Prompt saved',
+        error: 'Failed to save prompt',
+      },
+    );
+  }
 
   // Preprocess content to handle image dimensions
   const processedContent = message.content?.replace(
@@ -274,120 +429,112 @@ function ChatMessage({
         <div className="w-8" aria-hidden="true" />
       ) : null}
 
-      <div
-        className={cn(
-          'relative flex max-w-[85%] flex-col gap-2',
-          isUser ? 'items-end' : 'items-start',
-        )}
-      >
-        {hasAttachments && (
-          <div
-            className={cn('w-full max-w-[400px]', message.content && 'mb-2')}
+      <div className="group relative flex max-w-[85%] flex-row items-center">
+        {isUser && (
+          <button
+            onClick={handleSavePrompt}
+            className="mr-1 hidden pb-4 pl-4 pr-2 pt-4 group-hover:block hover:text-favorite"
           >
-            <MessageAttachments
-              attachments={message.experimental_attachments!}
-              messageId={message.id}
-              onPreviewImage={onPreviewImage}
-            />
-          </div>
+            <Bookmark className="h-4 w-4" />
+          </button>
         )}
-
-        {message.content && (
-          <div
-            className={cn(
-              'relative flex flex-col gap-2 rounded-2xl px-4 py-3 text-sm shadow-sm',
-              isUser ? 'bg-primary text-primary-foreground' : 'bg-muted/60',
-            )}
-          >
-            <div className="prose prose-neutral dark:prose-invert max-w-none">
-              <ReactMarkdown
-                rehypePlugins={[rehypeRaw]}
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  a: ({ node, ...props }) => (
-                    <a {...props} target="_blank" rel="noopener noreferrer" />
-                  ),
-                  img: ({ node, alt, src, ...props }) => {
-                    if (!src) return null;
-
-                    try {
-                      // Handle both relative and absolute URLs safely
-                      const url = new URL(src, 'http://dummy.com');
-                      const size = url.hash.match(/size=(\d+)x(\d+)/);
-
-                      if (size) {
-                        const [, width, height] = size;
-                        // Remove hash from src
-                        url.hash = '';
-                        return (
-                          <Image
-                            src={url.pathname + url.search}
-                            alt={alt || ''}
-                            width={Number(width)}
-                            height={Number(height)}
-                            className="inline-block align-middle"
-                          />
-                        );
-                      }
-                    } catch (e) {
-                      // If URL parsing fails, fallback to original src
-                      console.warn('Failed to parse image URL:', e);
-                    }
-
-                    const thumbnailPattern = /_thumb\.(png|jpg|jpeg|gif)$/i;
-                    const isThumbnail = thumbnailPattern.test(src);
-
-                    const width = isThumbnail ? 40 : 500;
-                    const height = isThumbnail ? 40 : 300;
-
-                    // Fallback to Image component with default dimensions
-                    return (
-                      <Image
-                        src={src}
-                        alt={alt || ''}
-                        width={width}
-                        height={height}
-                        className="inline-block align-middle"
-                      />
-                    );
-                  },
-                }}
-              >
-                {processedContent}
-              </ReactMarkdown>
+        <div
+          className={cn('relative gap-2', isUser ? 'items-end' : 'items-start')}
+        >
+          {hasAttachments && (
+            <div
+              className={cn('w-full max-w-[400px]', message.content && 'mb-2')}
+            >
+              <MessageAttachments
+                attachments={message.experimental_attachments!}
+                messageId={message.id}
+                onPreviewImage={onPreviewImage}
+              />
             </div>
-          </div>
-        )}
+          )}
 
-        {message.toolInvocations && (
-          <MessageToolInvocations toolInvocations={message.toolInvocations} />
-        )}
-      </div>
-    </div>
-  );
-}
+          {message.content && (
+            <div
+              className={cn(
+                'relative flex flex-col gap-2 rounded-2xl px-4 py-3 text-sm shadow-sm',
+                isUser ? 'bg-primary' : 'bg-muted/60',
+              )}
+            >
+              <div
+                className={cn(
+                  'prose prose-sm max-w-prose break-words leading-tight md:prose-base',
+                  isUser
+                    ? 'prose-invert dark:prose-neutral'
+                    : 'prose-neutral dark:prose-invert',
+                )}
+              >
+                <ReactMarkdown
+                  rehypePlugins={[rehypeRaw]}
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    a: ({ node, ...props }) => (
+                      <a {...props} target="_blank" rel="noopener noreferrer" />
+                    ),
+                    img: ({ node, alt, src, ...props }) => {
+                      if (!src) return null;
 
-function AttachmentPreview({ attachment, onRemove }: AttachmentPreviewProps) {
-  return (
-    <div className="group relative h-16 w-16 shrink-0">
-      <Image
-        src={attachment.localUrl}
-        alt={attachment.name ?? 'Attached image'}
-        fill
-        className="rounded-lg border object-cover"
-      />
-      {attachment.uploading && (
-        <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-background/60 backdrop-blur-sm">
-          <Loader2 className="h-4 w-4 animate-spin" />
+                      try {
+                        // Handle both relative and absolute URLs safely
+                        const url = new URL(src, 'http://dummy.com');
+                        const size = url.hash.match(/size=(\d+)x(\d+)/);
+
+                        if (size) {
+                          const [, width, height] = size;
+                          // Remove hash from src
+                          url.hash = '';
+                          return (
+                            <Image
+                              src={url.pathname + url.search}
+                              alt={alt || ''}
+                              width={Number(width)}
+                              height={Number(height)}
+                              className="inline-block align-middle"
+                            />
+                          );
+                        }
+                      } catch (e) {
+                        // If URL parsing fails, fallback to original src
+                        console.warn('Failed to parse image URL:', e);
+                      }
+
+                      const thumbnailPattern = /_thumb\.(png|jpg|jpeg|gif)$/i;
+                      const isThumbnail = thumbnailPattern.test(src);
+
+                      const width = isThumbnail ? 40 : 500;
+                      const height = isThumbnail ? 40 : 300;
+
+                      // Fallback to Image component with default dimensions
+                      return (
+                        <Image
+                          src={src}
+                          alt={alt || ''}
+                          width={width}
+                          height={height}
+                          className="inline-block align-middle"
+                        />
+                      );
+                    },
+                  }}
+                >
+                  {processedContent}
+                </ReactMarkdown>
+              </div>
+            </div>
+          )}
+
+          {message.toolInvocations && (
+            <MessageToolInvocations
+              toolInvocations={message.toolInvocations}
+              addToolResult={addToolResult}
+            />
+          )}
         </div>
-      )}
-      <button
-        type="button"
-        onClick={onRemove}
-        className="absolute right-1 top-1 rounded-full bg-background/80 p-1 opacity-0 shadow-sm backdrop-blur-sm transition-all group-hover:opacity-100 hover:bg-background"
-      >
-        <X className="h-3 w-3" />
-      </button>
+      </div>
     </div>
   );
 }
@@ -485,66 +632,6 @@ function LoadingMessage() {
   );
 }
 
-function useImageUpload() {
-  const [attachments, setAttachments] = useState<UploadingImage[]>([]);
-
-  const handleImageUpload = useCallback(async (file: File) => {
-    const localUrl = URL.createObjectURL(file);
-    const newAttachment: UploadingImage = {
-      url: localUrl,
-      name: file.name,
-      contentType: file.type,
-      localUrl,
-      uploading: true,
-    };
-
-    setAttachments((prev) => [...prev, newAttachment]);
-
-    try {
-      const url = await uploadImage(file);
-      if (!url) throw new Error('Failed to upload image');
-
-      setAttachments((prev) =>
-        prev.map((att) =>
-          att.localUrl === localUrl ? { ...att, url, uploading: false } : att,
-        ),
-      );
-    } catch (error) {
-      console.error('Failed to upload image:', error);
-      setAttachments((prev) => prev.filter((att) => att.localUrl !== localUrl));
-    } finally {
-      URL.revokeObjectURL(localUrl);
-    }
-  }, []);
-
-  const removeAttachment = useCallback((localUrl: string) => {
-    setAttachments((prev) => {
-      const attachment = prev.find((att) => att.localUrl === localUrl);
-      if (attachment) {
-        URL.revokeObjectURL(attachment.localUrl);
-      }
-      return prev.filter((att) => att.localUrl !== localUrl);
-    });
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      attachments.forEach((att) => {
-        if (att.uploading) {
-          URL.revokeObjectURL(att.localUrl);
-        }
-      });
-    };
-  }, [attachments]);
-
-  return {
-    attachments,
-    setAttachments,
-    handleImageUpload,
-    removeAttachment,
-  };
-}
-
 export default function ChatInterface({
   id,
   initialMessages = [],
@@ -552,24 +639,70 @@ export default function ChatInterface({
   id: string;
   initialMessages?: Message[];
 }) {
-  const { messages, input, handleSubmit, handleInputChange, isLoading } =
-    useChat({
-      id,
-      initialMessages,
-      body: { id },
-      onFinish: () => {
+  const {
+    messages: chatMessages,
+    input,
+    handleSubmit,
+    handleInputChange,
+    isLoading,
+    addToolResult,
+    data,
+    setInput,
+    setMessages,
+  } = useChat({
+    id,
+    maxSteps: 10,
+    initialMessages,
+    sendExtraMessageFields: true,
+    body: { id },
+    onFinish: () => {
+      if (window.location.pathname === `/chat/${id}`) {
         window.history.replaceState({}, '', `/chat/${id}`);
-        // Refresh wallet portfolio after AI response
-        refresh();
-      },
-    });
+      }
+      // Refresh wallet portfolio after AI response
+      refresh();
+
+      // Dispatch event to mark conversation as read
+      window.dispatchEvent(new CustomEvent(EVENTS.CONVERSATION_READ));
+    },
+    experimental_prepareRequestBody: ({ messages }) => {
+      return {
+        message: messages[messages.length - 1],
+        id,
+      } as unknown as JSONValue;
+    },
+  });
+
+  const messages = useMemo(() => {
+    const toolUpdates = data as unknown as ToolUpdate[];
+    if (!toolUpdates || toolUpdates.length === 0) {
+      return chatMessages;
+    }
+
+    const updatedMessages = applyToolUpdates(chatMessages, toolUpdates);
+
+    return updatedMessages;
+  }, [chatMessages, data]);
+
+  // Use polling for fetching new messages
+  usePolling({
+    url: `/api/chat/${id}`,
+    onUpdate: (data: Message[]) => {
+      if (!data) {
+        return;
+      }
+
+      if (data && data.length) {
+        setMessages(data);
+      }
+
+      window.dispatchEvent(new CustomEvent(EVENTS.CONVERSATION_READ));
+    },
+  });
 
   const [previewImage, setPreviewImage] = useState<ImagePreview | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [savedPrompts, setSavedPrompts] = useState<SavedPrompt[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { attachments, setAttachments, handleImageUpload, removeAttachment } =
-    useImageUpload();
   const {
     data: portfolio,
     isLoading: isPortfolioLoading,
@@ -582,38 +715,22 @@ export default function ChatInterface({
     }
   }, []);
 
-  const handleFileSelect = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(e.target.files || []);
-      if (files.length === 0) return;
+  useEffect(() => {
+    scrollToBottom();
+  }, []);
 
-      await Promise.all(files.map(handleImageUpload));
+  const handleSend = async (value: string, attachments: Attachment[]) => {
+    if (!value.trim() && (!attachments || attachments.length === 0)) {
+      return;
+    }
 
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    },
-    [handleImageUpload],
-  );
+    // Create a synthetic event for handleSubmit
+    const fakeEvent = {
+      preventDefault: () => {},
+      type: 'submit',
+    } as React.FormEvent;
 
-  const handlePaste = useCallback(
-    async (e: React.ClipboardEvent) => {
-      const items = Array.from(e.clipboardData.items);
-      const imageFiles = items
-        .filter((item) => item.type.startsWith('image/'))
-        .map((item) => item.getAsFile())
-        .filter((file): file is File => file !== null);
-
-      await Promise.all(imageFiles.map(handleImageUpload));
-    },
-    [handleImageUpload],
-  );
-
-  const handleFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() && attachments.length === 0) return;
-    if (attachments.some((att) => att.uploading)) return;
-
+    // Prepare message data with attachments if present
     const currentAttachments = attachments.map(
       ({ url, name, contentType }) => ({
         url,
@@ -621,8 +738,12 @@ export default function ChatInterface({
         contentType,
       }),
     );
-    setAttachments([]);
-    await handleSubmit(e, { experimental_attachments: currentAttachments });
+
+    // Submit the message
+    await handleSubmit(fakeEvent, {
+      data: value,
+      experimental_attachments: currentAttachments,
+    });
     scrollToBottom();
   };
 
@@ -639,7 +760,9 @@ export default function ChatInterface({
                 message={message}
                 index={index}
                 messages={messages}
+                setSavedPrompts={setSavedPrompts}
                 onPreviewImage={setPreviewImage}
+                addToolResult={addToolResult}
               />
             ))}
             {isLoading &&
@@ -659,89 +782,14 @@ export default function ChatInterface({
             <FloatingWallet data={portfolio} isLoading={isPortfolioLoading} />
           )}
 
-          <form onSubmit={handleFormSubmit} className="space-y-4">
-            <div className="relative overflow-hidden rounded-2xl bg-muted">
-              {attachments.length > 0 && (
-                <div className="flex gap-2 overflow-x-auto rounded-t-2xl bg-muted/50 p-3">
-                  {attachments.map((attachment) => (
-                    <AttachmentPreview
-                      key={attachment.localUrl}
-                      attachment={attachment}
-                      onRemove={() => removeAttachment(attachment.localUrl)}
-                    />
-                  ))}
-                </div>
-              )}
-
-              <Textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => {
-                  if (e.target.value.length <= MAX_CHARS) {
-                    handleInputChange(e);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (
-                    e.key === 'Enter' &&
-                    !e.shiftKey &&
-                    !e.nativeEvent.isComposing
-                  ) {
-                    e.preventDefault();
-                    handleFormSubmit(e);
-                  }
-                }}
-                onPaste={handlePaste}
-                placeholder="Send a message..."
-                className={cn(
-                  'min-h-[100px] w-full resize-none border-0 bg-transparent px-4 py-[1.3rem] focus-visible:ring-0',
-                  attachments.length > 0 ? 'rounded-t-none' : 'rounded-t-2xl',
-                )}
-                maxLength={MAX_CHARS}
-              />
-
-              <div className="absolute bottom-3 right-3 flex items-center gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={handleFileSelect}
-                  disabled={isLoading}
-                />
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 hover:bg-muted"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isLoading}
-                >
-                  <ImageIcon className="h-5 w-5" />
-                </Button>
-
-                <Button
-                  type="submit"
-                  size="icon"
-                  variant="ghost"
-                  disabled={
-                    (!input.trim() && attachments.length === 0) ||
-                    isLoading ||
-                    attachments.some((att) => att.uploading)
-                  }
-                  className="h-8 w-8 hover:bg-muted"
-                >
-                  <SendHorizontal className="h-5 w-5" />
-                </Button>
-              </div>
-            </div>
-
-            <div className="text-xs text-muted-foreground">
-              {input.length}/{MAX_CHARS}
-            </div>
-          </form>
+          <ConversationInput
+            value={input}
+            onChange={setInput}
+            onSubmit={handleSend}
+            onChat={true}
+            savedPrompts={savedPrompts}
+            setSavedPrompts={setSavedPrompts}
+          />
         </div>
       </div>
 

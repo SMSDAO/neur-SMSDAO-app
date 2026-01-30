@@ -1,6 +1,13 @@
 import { z } from 'zod';
 
-// Tools Export
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { type ToolActionResult } from '@/types/util';
+
+interface ConfirmDenyProps {
+  message: string;
+}
+
 export const utilTools = {
   askForConfirmation: {
     displayName: '⚠️ Confirmation',
@@ -8,25 +15,5 @@ export const utilTools = {
     parameters: z.object({
       message: z.string().describe('The message to ask for confirmation'),
     }),
-    execute: async ({ message }: { message: string }) => {
-      return {
-        data: {
-          message,
-        },
-      };
-    },
-    render: (raw: unknown) => {
-      const result = raw as { data: { message: string } };
-
-      return (
-        <div className="relative overflow-hidden rounded-2xl bg-muted/50 p-4">
-          <div className="flex items-center gap-3">
-            <p className="text-sm text-muted-foreground">
-              {result.data.message}
-            </p>
-          </div>
-        </div>
-      );
-    },
   },
 };

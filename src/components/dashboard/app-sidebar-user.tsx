@@ -103,7 +103,7 @@ export const AppSidebarUser = () => {
 
               {/* Docs */}
               <DropdownMenuItem
-                onClick={() => window.open('https://docs.neur.sh', '_blank')}
+                onClick={() => window.open('https://docs.neur.studio', '_blank')}
               >
                 <BookOpen className="mr-2 h-4 w-4" />
                 Docs

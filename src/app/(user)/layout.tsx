@@ -15,8 +15,7 @@ export default async function UserLayout({
     <SidebarProvider defaultOpen={defaultOpen}>
       <AppSidebar />
       <main className="w-full">
-        <SidebarTrigger className="mt-2 md:hidden" />
-        {/* <Banner>$NEUR is now live on Raydium 🎉</Banner> */}
+        <SidebarTrigger className="absolute z-50 mt-2 md:hidden" />
         {children}
       </main>
     </SidebarProvider>

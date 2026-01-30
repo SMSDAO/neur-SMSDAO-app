@@ -15,14 +15,14 @@ interface ToolResultProps {
 }
 
 export function ToolResult({ toolName, result, header }: ToolResultProps) {
-  const config = getToolConfig(toolName)!;
-  const isCollapsible = config.isCollapsible === true;
+  const config = getToolConfig(toolName);
+  const isCollapsible = config?.isCollapsible === true;
   const [isOpen, setIsOpen] = useState(
-    config.isExpandedByDefault ?? !isCollapsible,
+    config?.isExpandedByDefault ?? !isCollapsible,
   );
 
-  const content = config.render
-    ? config.render(result)
+  const content = config?.render
+    ? config?.render(result)
     : DefaultToolResultRenderer({ result });
   if (!content) return null;
 
@@ -42,17 +42,21 @@ export function ToolResult({ toolName, result, header }: ToolResultProps) {
 
   if (!isCollapsible) {
     return (
-      <div className="w-full">
+      <div className="mt-2 w-full">
         <div className="w-full rounded-lg bg-muted/40 px-3 py-2">
           {headerContent}
         </div>
-        <div className="mt-2 px-4">{content}</div>
+        <div className="mt-2 text-sm sm:px-4 sm:text-base">{content}</div>
       </div>
     );
   }
 
   return (
-    <Collapsible.Root open={isOpen} onOpenChange={setIsOpen} className="w-full">
+    <Collapsible.Root
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      className="mt-2 w-full"
+    >
       <Collapsible.Trigger className="w-full">
         <div className="w-full cursor-pointer rounded-lg bg-muted/40 px-3 py-2 transition-colors hover:bg-muted/60">
           {headerContent}

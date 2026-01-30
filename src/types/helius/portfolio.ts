@@ -1,6 +1,8 @@
 import { FungibleToken } from './fungibleToken';
 import { NonFungibleToken } from './nonFungibleToken';
 
+export const SOL_MINT = 'So11111111111111111111111111111111111111112';
+
 export interface Token {
   mint: string;
   name: string;
@@ -31,9 +33,7 @@ export function transformToPortfolio(
   nonFungibleTokens: NonFungibleToken[],
 ): WalletPortfolio {
   // Rename Wrapped SOL to Solana
-  const sol = fungibleTokens.find(
-    (token) => token.id === 'So11111111111111111111111111111111111111112',
-  );
+  const sol = fungibleTokens.find((token) => token.id === SOL_MINT);
   if (sol) {
     sol.content.metadata.name = 'Solana';
   }
@@ -41,10 +41,10 @@ export function transformToPortfolio(
   const tokens: Token[] = fungibleTokens
     .filter(
       (token) =>
-        token.id === 'So11111111111111111111111111111111111111112' ||
+        token.id === SOL_MINT ||
         token.token_info.balance *
           token.token_info.price_info?.price_per_token >
-          5,
+          1,
     )
     .map((token) => ({
       mint: token.id,

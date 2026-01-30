@@ -10,6 +10,7 @@ interface ConversationsState {
   removeConversation: (id: string) => void;
   setActiveId: (id: string | null) => void;
   setLoading: (loading: boolean) => void;
+  markAsRead: (id: string) => void;
 }
 
 export const useConversationsStore = create<ConversationsState>((set: any) => ({
@@ -43,5 +44,15 @@ export const useConversationsStore = create<ConversationsState>((set: any) => ({
     set((state: ConversationsState) => ({
       ...state,
       isLoading: loading,
+    })),
+  markAsRead: (id: string) =>
+    set((state: ConversationsState) => ({
+      ...state,
+      conversations: state.conversations.map((c: Conversation) => {
+        if (c.id === id) {
+          return { ...c, lastReadAt: new Date() };
+        }
+        return c;
+      }),
     })),
 }));

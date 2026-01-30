@@ -51,7 +51,7 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <main className="overflow-hidden md:overflow-visible">
+            <main className="sticky bottom-0 overflow-hidden md:overflow-visible">
               {children}
               <Toaster />
             </main>

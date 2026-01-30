@@ -29,7 +29,7 @@ export function FloatingWallet({
   useEffect(() => {
     setMounted(true);
     // Preload all token images
-    if (data.tokens.length > 0) {
+    if (data.tokens?.length > 0) {
       Promise.all(
         data.tokens.map((token) => {
           if (!token.imageUrl) return Promise.resolve();

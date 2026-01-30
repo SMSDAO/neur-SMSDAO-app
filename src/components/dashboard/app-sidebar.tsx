@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-import { BookOpen, Brain, HomeIcon } from 'lucide-react';
+import { BookOpen, Bookmark, Brain, HomeIcon } from 'lucide-react';
 
 import { ThemeToggle } from '@/components/theme-toggle';
 import {
@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/sidebar';
 import { APP_VERSION, IS_BETA } from '@/lib/constants';
 
+import { AppSidebarAutomations } from './app-sidebar-automations';
 import { AppSidebarConversations } from './app-sidebar-conversations';
 import { AppSidebarUser } from './app-sidebar-user';
 
@@ -28,7 +29,7 @@ const AppSidebarHeader = () => {
     <SidebarHeader>
       <div className="flex items-center justify-between px-1">
         <span className="pl-2 text-lg font-medium tracking-tight group-data-[collapsible=icon]:hidden">
-          neur.sh
+          neur.studio
         </span>
         <div className="flex items-center gap-1.5">
           <ThemeToggle />
@@ -76,6 +77,13 @@ const ExploreItems = [
     url: '/memories',
     segment: 'memories',
     icon: Brain,
+    external: false,
+  },
+  {
+    title: 'Saved Prompts',
+    url: '/saved-prompts',
+    segment: 'saved-prompts',
+    icon: Bookmark,
     external: false,
   },
   // {
@@ -135,6 +143,7 @@ export function AppSidebar() {
           </SidebarGroup>
 
           <AppSidebarConversations />
+          <AppSidebarAutomations />
         </SidebarContent>
       </SidebarContent>
 

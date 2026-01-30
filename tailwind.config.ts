@@ -36,9 +36,21 @@ export default {
           DEFAULT: 'hsl(var(--accent))',
           foreground: 'hsl(var(--accent-foreground))',
         },
+        warning: {
+          DEFAULT: 'hsl(var(--warning))',
+          foreground: 'hsl(var(--warning-foreground))',
+        },
         destructive: {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))',
+        },
+        success: {
+          DEFAULT: 'hsl(var(--success))',
+          foreground: 'hsl(var(--success-foreground))',
+        },
+        pending: {
+          DEFAULT: 'hsl(var(--pending))',
+          foreground: 'hsl(var(--pending-foreground))',
         },
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
@@ -55,6 +67,7 @@ export default {
         'color-3': 'hsl(var(--color-3))',
         'color-4': 'hsl(var(--color-4))',
         'color-5': 'hsl(var(--color-5))',
+        favorite: 'hsl(var(--favorite))',
         sidebar: {
           DEFAULT: 'hsl(var(--sidebar-background))',
           foreground: 'hsl(var(--sidebar-foreground))',
@@ -214,5 +227,9 @@ export default {
       },
     },
   },
-  plugins: [require('tailwindcss-animate'), require('tailwind-scrollbar')],
+  plugins: [
+    require('tailwindcss-animate'),
+    require('tailwind-scrollbar'),
+    require('@tailwindcss/typography'),
+  ],
 } satisfies Config;

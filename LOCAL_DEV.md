@@ -1,6 +1,6 @@
 # Local Development
 
-This describes steps to spin up Neur.sh locally:
+This describes steps to spin up Neur.studio locally:
 
 ## Environment Variables
 
@@ -56,6 +56,9 @@ NEXT_PUBLIC_HELIUS_RPC_URL=<YOUR_HELIUS_RPC_URL>
 # DB
 POSTGRES_USER=admin
 POSTGRES_PASSWORD=admin
+
+# Privy Embedded Wallet Delegated Actions
+PRIVY_SIGNING_KEY=<YOUR_PRIVY_SIGNING_KEY>
 ```
 
 Optionall you can provide a [Helius](https://www.helius.dev/) private RPC URL.

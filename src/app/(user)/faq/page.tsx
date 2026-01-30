@@ -44,6 +44,23 @@ const faqItems: FaqItem[] = [
       </div>
     ),
   },
+  {
+    id: 'item-3',
+    question: 'How can I become EAP Verified in Discord?',
+    answer: (
+      <div className="space-y-4">
+        <span>
+          On the bottom left, tap your wallet, then tap `Account`. Next, you
+          should see a `Connect` button next to Discord. Tap on that and connect
+          to the Discord server.
+          <br />
+          Once that is completed, you should now be `EAP VERIFIED` and see
+          custom Discord channels for EAP users. Your name will also be color
+          differentiated from other users.
+        </span>
+      </div>
+    ),
+  },
 ];
 
 export default function FaqPage() {
