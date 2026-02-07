@@ -695,6 +695,141 @@ const token = {
       return <TokenHoldersResult holdersResult={result} />;
     },
   },
+
+  parseTransaction: {
+    displayName: '🔍 Parse Transaction',
+    isCollapsible: true,
+    description:
+      'Parse a Solana transaction signature and extract detailed information including type, status, involved addresses, and amounts.',
+    parameters: z.object({
+      signature: z.string().describe('The transaction signature to parse'),
+    }),
+    execute: async ({ signature }: { signature: string }) => {
+      try {
+        const { parseTransaction } = await import(
+          '@/lib/solana/transaction-parser'
+        );
+        const result = await parseTransaction(signature);
+
+        if (!result) {
+          return {
+            success: false,
+            error: 'Transaction not found or could not be parsed',
+          };
+        }
+
+        return {
+          success: true,
+          data: result,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Failed to parse transaction',
+        };
+      }
+    },
+    render: (result: unknown) => {
+      const typedResult = result as {
+        success: boolean;
+        data?: any;
+        error?: string;
+      };
+
+      if (!typedResult.success || !typedResult.data) {
+        return (
+          <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4">
+            <p className="text-sm text-destructive">
+              {typedResult.error || 'Failed to parse transaction'}
+            </p>
+          </div>
+        );
+      }
+
+      const tx = typedResult.data;
+
+      return (
+        <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                'text-sm font-medium',
+                tx.success ? 'text-green-600' : 'text-destructive',
+              )}
+            >
+              {tx.success ? '✅ Success' : '❌ Failed'}
+            </span>
+            <span className="text-sm text-muted-foreground">·</span>
+            <span className="text-sm capitalize text-muted-foreground">
+              {tx.type}
+            </span>
+          </div>
+
+          <div className="space-y-2 text-sm">
+            <div>
+              <span className="font-medium">Signature:</span>
+              <p className="font-mono text-xs text-muted-foreground">
+                {tx.signature.slice(0, 16)}...{tx.signature.slice(-16)}
+              </p>
+            </div>
+
+            {tx.blockTime && (
+              <div>
+                <span className="font-medium">Time:</span>
+                <p className="text-muted-foreground">
+                  {new Date(tx.blockTime * 1000).toLocaleString()}
+                </p>
+              </div>
+            )}
+
+            <div>
+              <span className="font-medium">Fee:</span>
+              <p className="text-muted-foreground">
+                {(tx.fee / 1e9).toFixed(6)} SOL
+              </p>
+            </div>
+
+            {tx.from && (
+              <div>
+                <span className="font-medium">From:</span>
+                <p className="font-mono text-xs text-muted-foreground">
+                  {tx.from.slice(0, 8)}...{tx.from.slice(-8)}
+                </p>
+              </div>
+            )}
+
+            {tx.to && (
+              <div>
+                <span className="font-medium">To:</span>
+                <p className="font-mono text-xs text-muted-foreground">
+                  {tx.to.slice(0, 8)}...{tx.to.slice(-8)}
+                </p>
+              </div>
+            )}
+
+            {tx.amount && (
+              <div>
+                <span className="font-medium">Amount:</span>
+                <p className="text-muted-foreground">{tx.amount}</p>
+              </div>
+            )}
+
+            {tx.instructions && tx.instructions.length > 0 && (
+              <div>
+                <span className="font-medium">Instructions:</span>
+                <p className="text-muted-foreground">
+                  {tx.instructions.length} instruction(s)
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    },
+  },
 };
 
 export const solanaTools = {
