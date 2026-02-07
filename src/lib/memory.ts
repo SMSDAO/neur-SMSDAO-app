@@ -66,9 +66,12 @@ export async function addMemory(
       metadata,
     });
 
+    // Handle both array and object responses
+    const memoryId = (result as any)?.id || (Array.isArray(result) && result.length > 0 ? result[0]?.id : undefined);
+
     return {
       success: true,
-      memoryId: result.id,
+      memoryId,
     };
   } catch (error) {
     console.error('Error adding memory:', error);

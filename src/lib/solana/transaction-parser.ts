@@ -115,7 +115,7 @@ function extractTransactionData(
 
   return {
     signature,
-    blockTime,
+    blockTime: blockTime || null,
     slot,
     fee,
     success,

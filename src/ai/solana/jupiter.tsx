@@ -313,9 +313,9 @@ export const jupiterTools = {
     }) => {
       try {
         const { retrieveAgentKit } = await import('@/server/actions/ai');
-        const agentKitResult = await retrieveAgentKit();
+        const agentKitResult = await retrieveAgentKit(undefined);
         
-        if (!agentKitResult.success || !agentKitResult.data) {
+        if (!agentKitResult || !agentKitResult.data?.success || !agentKitResult.data?.data) {
           return {
             success: false,
             error: 'Failed to initialize agent kit',
@@ -323,7 +323,7 @@ export const jupiterTools = {
         }
 
         const { createLimitOrder } = await import('@/lib/solana/integrations/jupiter');
-        const result = await createLimitOrder(agentKitResult.data, {
+        const result = await createLimitOrder(agentKitResult.data.data, {
           marketId,
           quantity,
           side,
