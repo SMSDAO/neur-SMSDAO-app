@@ -50,8 +50,8 @@ export async function createAutomatedAction(
       };
     }
 
-    // Generate action ID
-    const actionId = `action_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Generate action ID using crypto API for security
+    const actionId = `action_${Date.now()}_${crypto.randomUUID()}`;
 
     // Store in database (placeholder)
     // Full implementation would:

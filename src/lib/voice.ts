@@ -115,6 +115,7 @@ export async function textToSpeech(
 
 /**
  * Synthesize speech using OpenAI TTS
+ * Returns the blob directly to allow caller to manage cleanup
  */
 async function synthesizeWithOpenAI(
   text: string,
@@ -142,7 +143,8 @@ async function synthesizeWithOpenAI(
     // Get audio blob
     const audioBlob = await response.blob();
     
-    // Convert to data URL or upload to storage
+    // Create object URL - caller is responsible for cleanup
+    // Remember to call URL.revokeObjectURL(url) when done
     const audioUrl = URL.createObjectURL(audioBlob);
 
     return {
@@ -223,9 +225,32 @@ export class VoiceConversationSession {
     const response = await textToSpeech(text, this.config);
     
     if (response.audioUrl) {
-      // Play the audio
-      const audio = new Audio(response.audioUrl);
-      await audio.play();
+      try {
+        // Play the audio
+        const audio = new Audio(response.audioUrl);
+        
+        // Handle playback errors (e.g., autoplay blocked)
+        await audio.play().catch((error) => {
+          console.error('Audio playback failed:', error);
+          throw error;
+        });
+        
+        // Clean up object URL after playback
+        audio.addEventListener('ended', () => {
+          URL.revokeObjectURL(response.audioUrl!);
+        });
+        
+        // Also clean up if there's an error
+        audio.addEventListener('error', () => {
+          URL.revokeObjectURL(response.audioUrl!);
+        });
+      } catch (error) {
+        // Clean up on error
+        if (response.audioUrl) {
+          URL.revokeObjectURL(response.audioUrl);
+        }
+        throw error;
+      }
     }
   }
 

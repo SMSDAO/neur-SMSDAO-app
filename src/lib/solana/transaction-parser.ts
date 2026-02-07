@@ -100,11 +100,19 @@ function extractTransactionData(
   
   // Look for transfer instructions
   for (const instruction of instructions) {
-    if (instruction.type === 'transfer' || instruction.type === 'transferChecked') {
+    if (instruction.type === 'transfer') {
       transactionType = 'transfer';
-      from = instruction.data?.source || instruction.data?.authority;
+      // For 'transfer' type, 'source' is the sender
+      from = instruction.data?.source;
       to = instruction.data?.destination;
-      amount = instruction.data?.amount || instruction.data?.tokenAmount?.amount;
+      amount = instruction.data?.amount;
+      break;
+    } else if (instruction.type === 'transferChecked') {
+      transactionType = 'transfer';
+      // For 'transferChecked' type, 'authority' is the sender
+      from = instruction.data?.authority || instruction.data?.source;
+      to = instruction.data?.destination;
+      amount = instruction.data?.tokenAmount?.amount || instruction.data?.amount;
       token = instruction.data?.mint;
       break;
     } else if (instruction.type === 'swap') {

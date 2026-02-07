@@ -20,18 +20,21 @@ export const memoryTools = {
     }: {
       message: string;
       metadata?: Record<string, any>;
-    }, context?: { userId?: string }) => {
+    }) => {
       try {
-        const { addMemory } = await import('@/lib/memory');
-        
-        if (!context?.userId) {
+        const { verifyUser } = await import('@/server/actions/user');
+        const authResult = await verifyUser();
+        const userId = authResult?.data?.data?.id;
+
+        if (!userId) {
           return {
             success: false,
-            error: 'User ID not available',
+            error: 'User authentication required',
           };
         }
 
-        const result = await addMemory(message, context.userId, metadata);
+        const { addMemory } = await import('@/lib/memory');
+        const result = await addMemory(message, userId, metadata);
         return result;
       } catch (error) {
         return {
@@ -87,18 +90,21 @@ export const memoryTools = {
     }: {
       query: string;
       limit?: number;
-    }, context?: { userId?: string }) => {
+    }) => {
       try {
-        const { searchMemories } = await import('@/lib/memory');
-        
-        if (!context?.userId) {
+        const { verifyUser } = await import('@/server/actions/user');
+        const authResult = await verifyUser();
+        const userId = authResult?.data?.data?.id;
+
+        if (!userId) {
           return {
             success: false,
-            error: 'User ID not available',
+            error: 'User authentication required',
           };
         }
 
-        const result = await searchMemories(query, context.userId, limit);
+        const { searchMemories } = await import('@/lib/memory');
+        const result = await searchMemories(query, userId, limit);
         return result;
       } catch (error) {
         return {
@@ -171,18 +177,21 @@ export const memoryTools = {
       limit,
     }: {
       limit?: number;
-    }, context?: { userId?: string }) => {
+    }) => {
       try {
-        const { getUserMemories } = await import('@/lib/memory');
-        
-        if (!context?.userId) {
+        const { verifyUser } = await import('@/server/actions/user');
+        const authResult = await verifyUser();
+        const userId = authResult?.data?.data?.id;
+
+        if (!userId) {
           return {
             success: false,
-            error: 'User ID not available',
+            error: 'User authentication required',
           };
         }
 
-        const result = await getUserMemories(context.userId, limit);
+        const { getUserMemories } = await import('@/lib/memory');
+        const result = await getUserMemories(userId, limit);
         return result;
       } catch (error) {
         return {

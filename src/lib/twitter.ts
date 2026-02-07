@@ -70,7 +70,7 @@ export async function searchTweets(
     const data = await response.json();
     
     // Map users by ID for easy lookup
-    const usersById = new Map();
+    const usersById = new Map<string, any>();
     if (data.includes?.users) {
       for (const user of data.includes.users) {
         usersById.set(user.id, user);
