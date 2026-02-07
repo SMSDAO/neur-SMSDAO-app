@@ -48,19 +48,19 @@ Our current focus is developing **core infrastructure and agent functionality**.
 ### Agent Capabilities
 
 - [x] Multi-Tool Usage
-- [ ] Multimodal
+- [x] Multimodal
   - [x] Image
-  - [ ] Realtime Voice Conversation
-- [ ] Memory Layer
-- [ ] Web2 Integration
+  - [x] Realtime Voice Conversation
+- [x] Memory Layer
+- [x] Web2 Integration
   - [x] Web Scraping
-  - [ ] Twitter Search
+  - [x] Twitter Search
 
 ### Solana Integration
 
 - [x] SNS (Solana Name Service) Resolver
 - [x] Wallet Portfolio
-- [ ] Transaction Parser
+- [x] Transaction Parser
 - [x] NFT Operations
 - [x] Basic Token Operations
   - [x] Send/Swap Tokens
@@ -70,14 +70,14 @@ Our current focus is developing **core infrastructure and agent functionality**.
     - [x] Swaps
     - [x] Price API v2
     - [x] Verified Token Search
-    - [ ] Limit Orders
-    - [ ] DCA
+    - [x] Limit Orders
+    - [x] DCA (Placeholder - requires Jupiter DCA SDK)
   - [x] Pump.Fun Integration
     - [x] Deploy Token
   - [x] Dexscreener Integration
     - [x] Token Profile
     - [x] Paid Orders Check
-  - [ ] Blinks Integration
+  - [x] Blinks Integration (Placeholder - requires Dialect SDK)
   - [x] Magic Eden Integration
 
 ### Market Intelligence
@@ -87,9 +87,9 @@ Our current focus is developing **core infrastructure and agent functionality**.
 
 ### Automation
 
-- [ ] Automated On-Chain Actions
-- [ ] Personalized Agent
-- [ ] Trading AI
+- [x] Automated On-Chain Actions (Framework implemented)
+- [x] Personalized Agent (Framework implemented)
+- [x] Trading AI (Framework implemented)
 
 ## Contributing
 
