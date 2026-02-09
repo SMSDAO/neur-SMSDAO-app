@@ -287,4 +287,94 @@ export const jupiterTools = {
       );
     },
   },
+
+  createLimitOrder: {
+    displayName: '📋 Create Limit Order',
+    isCollapsible: true,
+    description:
+      'Create a limit order on Jupiter/Manifest markets. Allows buying or selling tokens at a specific price. Requires confirmation.',
+    parameters: z.object({
+      marketId: z.string().describe('The Manifest market ID (public key)'),
+      quantity: z.number().describe('Amount of tokens to trade'),
+      side: z.enum(['buy', 'sell']).describe('Order side: buy or sell'),
+      price: z.number().describe('Limit price for the order'),
+    }),
+    requiresConfirmation: true,
+    execute: async ({
+      marketId,
+      quantity,
+      side,
+      price,
+    }: {
+      marketId: string;
+      quantity: number;
+      side: 'buy' | 'sell';
+      price: number;
+    }) => {
+      try {
+        const { retrieveAgentKit } = await import('@/server/actions/ai');
+        const agentKitResult = await retrieveAgentKit(undefined);
+        
+        if (!agentKitResult || !agentKitResult.data?.success || !agentKitResult.data?.data) {
+          return {
+            success: false,
+            error: 'Failed to initialize agent kit',
+          };
+        }
+
+        const { createLimitOrder } = await import('@/lib/solana/integrations/jupiter');
+        const result = await createLimitOrder(agentKitResult.data.data, {
+          marketId,
+          quantity,
+          side,
+          price,
+        });
+
+        return result;
+      } catch (error) {
+        return {
+          success: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Failed to create limit order',
+        };
+      }
+    },
+    render: (result: unknown) => {
+      const typedResult = result as {
+        success: boolean;
+        signature?: string;
+        error?: string;
+      };
+
+      if (!typedResult.success) {
+        return (
+          <div className="relative overflow-hidden rounded-2xl bg-destructive/5 p-4">
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-destructive">
+                Error: {typedResult.error}
+              </p>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="relative overflow-hidden rounded-2xl bg-muted/50 p-4">
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-medium text-green-600">
+              ✅ Limit order created successfully
+            </p>
+            {typedResult.signature && (
+              <p className="font-mono text-xs text-muted-foreground">
+                Signature: {typedResult.signature.slice(0, 8)}...
+                {typedResult.signature.slice(-8)}
+              </p>
+            )}
+          </div>
+        </div>
+      );
+    },
+  },
 };

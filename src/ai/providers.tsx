@@ -10,7 +10,9 @@ import { Card } from '@/components/ui/card';
 
 import { actionTools } from './generic/action';
 import { jinaTools } from './generic/jina';
+import { memoryTools } from './generic/memory';
 import { telegramTools } from './generic/telegram';
+import { twitterSearchTools } from './generic/twitter';
 import { utilTools } from './generic/util';
 import { bundleTools } from './solana/bundle';
 import { birdeyeTools } from './solana/birdeye';
@@ -166,6 +168,8 @@ export const defaultTools: Record<string, ToolConfig> = {
   ...bundleTools,
   ...birdeyeTools,
   ...cookietools,
+  ...twitterSearchTools,
+  ...memoryTools,
 };
 
 export function filterTools(
