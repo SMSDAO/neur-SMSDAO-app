@@ -54,7 +54,7 @@
     "cmdk": "^1.0.4",
     "date-fns": "^4.1.0",
     "framer-motion": "^11.18.1",
-    "helius-sdk": "^1.4.1",
+    "helius-sdk": "^2.0.0",
     "keyv": "4.5.4",
     "lodash": "^4.17.21",
     "lucide-react": "^0.468.0",
